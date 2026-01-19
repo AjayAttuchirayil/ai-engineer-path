@@ -1,1 +1,1 @@
-print('Hello AI World')
+print('Hello GPT-4o')

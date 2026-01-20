@@ -1,1 +1,1 @@
-print('Hello GPT-4o')
+print('Hello GPT-4o!')

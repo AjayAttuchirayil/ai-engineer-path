@@ -24,13 +24,18 @@ else:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "system", "content": "You are a creative writing coach who gives a very brief and harsh feedback."},
                 {"role": "user", "content": "Write a one-sentence greeting to a new AI Engineer."}
-            ]
+            ],
+	    temperature=1.0,
+	    max_tokens=60
         )
 
         # Printing the result
         print(f"\nAI Response: {response.choices[0].message.content}")
+	
+	# Checking 'usage' helps you track costs
+        print(f"\n📊 Tokens Used: {response.usage.total_tokens}")
 
     except RateLimitError as e:
         print("\n❌ Quota Error (429): You have hit your OpenAI rate limit or exhausted your credits.")

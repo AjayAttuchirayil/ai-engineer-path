@@ -63,3 +63,7 @@ else:
         print(f"\n❌ OpenAI Server Error: Something went wrong on their end. {e}")
     except Exception as e:
         print(f"\n❌ Unexpected Error: {e}")
+    finally:
+        # This block runs NO MATTER WHAT.
+        # Use it for cleanup tasks (closing files, db connections, or final logs)
+        print("\n--- API Session Finished ---")

@@ -1,4 +1,5 @@
 import os
+import sys
 from dotenv import load_dotenv
 from openai import OpenAI, RateLimitError
 
@@ -6,11 +7,9 @@ from openai import OpenAI, RateLimitError
 load_dotenv()
 
 # 2. Setup the API Key
-# Replace "OPENAI_API_KEY" with the exact name used in your .env file
 api_key = os.getenv("OPENAI_API_KEY")
 
 # 3. Initialize the OpenAI Client
-# This client object will be our primary tool for all AI interactions
 client = OpenAI(api_key=api_key)
 
 # 4. Validation & Connection Test
@@ -20,28 +19,44 @@ else:
     print("✅ System Ready: OpenAI Client Initialized.")
     
     try:
-        # Sending a simple request to test the connection
+        # Week 2 | Day 5: Streaming Responses
+        # We add 'stream=True' to get the response chunk by chunk
+        # 'stream_options' allows us to still get usage data at the end of the stream
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a creative writing coach who gives a very brief and harsh feedback."},
-                {"role": "user", "content": "Write a one-sentence greeting to a new AI Engineer."}
+                {"role": "system", "content": "You are a helpful assistant who explains complex topics simply."},
+                {"role": "user", "content": "Explain how a solar panel works in 3 paragraphs."}
             ],
-	    temperature=1.0,
-	    max_tokens=60
+            temperature=0.7,
+            max_tokens=300,
+            stream=True,
+            stream_options={"include_usage": True} 
         )
 
-        # Printing the result
-        print(f"\nAI Response: {response.choices[0].message.content}")
-	
-	# Checking 'usage' helps you track costs
-        print(f"\n📊 Tokens Used: {response.usage.total_tokens}")
+        print("\nAI Response: ", end="")
+        
+        # When streaming, we must iterate through the chunks
+        total_usage = None
+        for chunk in response:
+            # Check if this chunk contains usage data (usually the last chunk)
+            if chunk.usage is not None:
+                total_usage = chunk.usage
+            
+            # Check if this chunk contains text content
+            if len(chunk.choices) > 0:
+                content = chunk.choices[0].delta.content
+                if content:
+                    # Print the chunk immediately to the terminal
+                    sys.stdout.write(content)
+                    sys.stdout.flush()
 
-    except RateLimitError as e:
+        # Printing the final usage stats
+        if total_usage:
+            print(f"\n\n📊 Total Tokens Used: {total_usage.total_tokens}")
+            print(f"   (Prompt: {total_usage.prompt_tokens}, Completion: {total_usage.completion_tokens})")
+
+    except RateLimitError:
         print("\n❌ Quota Error (429): You have hit your OpenAI rate limit or exhausted your credits.")
-        print("💡 Tips to fix this:")
-        print("1. Check your billing dashboard at https://platform.openai.com/account/billing")
-        print("2. Ensure you have at least $5.00 in credits (OpenAI requires a minimum balance for API access).")
-        print("3. If using a new account, wait a few minutes; sometimes there is a delay in credit activation.")
     except Exception as e:
         print(f"\n❌ An unexpected error occurred: {e}")

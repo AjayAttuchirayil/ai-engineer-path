@@ -7,35 +7,48 @@ from openai import OpenAI
 load_dotenv(override=True)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# 2. THE MEMORY (The core of Week 3)
-# We store the entire conversation in a list of dictionaries.
+# Configuration: How many messages to keep (excluding system prompt)
+MAX_HISTORY = 6 
+
 chat_history = [
-    {"role": "system", "content": "You are a friendly AI tutor."}
+    {"role": "system", "content": "You are a helpful coding assistant."}
 ]
 
+def trim_history(history, max_messages):
+    """
+    Keeps the system message (index 0) and the most recent N messages.
+    """
+    if len(history) > max_messages:
+        # Keep the system message + the most recent (max_messages - 1)
+        # Slicing from the end: history[-(max_messages-1):]
+        system_message = [history[0]]
+        recent_messages = history[-(max_messages - 1):]
+        return system_message + recent_messages
+    return history
+
 def chat():
-    print("--- 🧠 AI with Memory (Type 'exit' to stop) ---")
+    global chat_history
+    print(f"--- 🕰️ Sliding Window Memory (Limit: {MAX_HISTORY}) ---")
     
     while True:
         user_input = input("\nYou: ")
-        
         if user_input.lower() in ["exit", "quit"]:
             break
 
-        # 3. Add the user's message to our history
         chat_history.append({"role": "user", "content": user_input})
 
+        # CRITICAL: Prune history BEFORE the API call to save money
+        chat_history = trim_history(chat_history, MAX_HISTORY)
+
         try:
-            # 4. We send the WHOLE history, not just the new message
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
-                messages=chat_history, # Sending the full list
+                messages=chat_history,
                 stream=True
             )
 
             print("AI: ", end="")
             full_ai_response = ""
-            
             for chunk in response:
                 if len(chunk.choices) > 0:
                     content = chunk.choices[0].delta.content
@@ -44,10 +57,11 @@ def chat():
                         sys.stdout.flush()
                         full_ai_response += content
 
-            # 5. CRITICAL STEP: Add the AI's response to history 
-            # so it remembers what it said in the next turn!
             chat_history.append({"role": "assistant", "content": full_ai_response})
             print()
+            
+            # Print debug info to see the 'sliding' in action
+            print(f"\n[System Note: Context size is now {len(chat_history)} messages]")
 
         except Exception as e:
             print(f"\n❌ Error: {e}")

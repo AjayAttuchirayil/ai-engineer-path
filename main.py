@@ -7,28 +7,22 @@ from openai import OpenAI
 load_dotenv(override=True)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Configuration: How many messages to keep (excluding system prompt)
-MAX_HISTORY = 6 
+# Day 3: Advanced Role Management
+# We are creating a 'Persona Bot' to show how the System role dominates behavior.
+SYSTEM_PROMPT = """
+You are a 'Senior Code Reviewer'. 
+Your personality: Strict, efficient, and slightly sarcastic.
+Your rule: You only answer coding questions. If the user asks about anything else, 
+politely but firmly tell them you are here to review code, not chat about life.
+"""
 
 chat_history = [
-    {"role": "system", "content": "You are a helpful coding assistant."}
+    {"role": "system", "content": SYSTEM_PROMPT}
 ]
 
-def trim_history(history, max_messages):
-    """
-    Keeps the system message (index 0) and the most recent N messages.
-    """
-    if len(history) > max_messages:
-        # Keep the system message + the most recent (max_messages - 1)
-        # Slicing from the end: history[-(max_messages-1):]
-        system_message = [history[0]]
-        recent_messages = history[-(max_messages - 1):]
-        return system_message + recent_messages
-    return history
-
 def chat():
-    global chat_history
-    print(f"--- 🕰️ Sliding Window Memory (Limit: {MAX_HISTORY}) ---")
+    #global chat_history
+    print("--- 🧐 Senior Code Reviewer Bot ---")
     
     while True:
         user_input = input("\nYou: ")
@@ -37,31 +31,29 @@ def chat():
 
         chat_history.append({"role": "user", "content": user_input})
 
-        # CRITICAL: Prune history BEFORE the API call to save money
-        chat_history = trim_history(chat_history, MAX_HISTORY)
-
         try:
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=chat_history,
+                temperature=0.9,
                 stream=True
             )
 
             print("AI: ", end="")
-            full_ai_response = ""
+            
+            ai_message = ""
             for chunk in response:
                 if len(chunk.choices) > 0:
                     content = chunk.choices[0].delta.content
                     if content:
                         sys.stdout.write(content)
                         sys.stdout.flush()
-                        full_ai_response += content
+                        ai_message += content
 
-            chat_history.append({"role": "assistant", "content": full_ai_response})
-            print()
+            #print(f"\nReviewer: {ai_message}")
+
+            chat_history.append({"role": "assistant", "content": ai_message})
             
-            # Print debug info to see the 'sliding' in action
-            print(f"\n[System Note: Context size is now {len(chat_history)} messages]")
 
         except Exception as e:
             print(f"\n❌ Error: {e}")

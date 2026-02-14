@@ -10,17 +10,13 @@ load_dotenv(override=True)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 
-# --- Week 4 | Day 5: Real-World Search Integration ---
+# --- Week 4 | Day 6: The AI Assistant Project ---
 
 def search_web(query):
-    """
-    Searches the live internet for the given query.
-    Returns a list of search results with titles, URLs, and snippets.
-    """
+    """Searches the live internet for the given query."""
     print(f"[🌐 Tool] Searching the web for: '{query}'...")
-    
     if not TAVILY_API_KEY:
-        return {"error": "Tavily API Key missing. Please add it to your .env file."}
+        return {"error": "Tavily API Key missing."}
 
     url = "https://api.tavily.com/search"
     payload = {
@@ -34,41 +30,40 @@ def search_web(query):
         response = requests.post(url, json=payload)
         response.raise_for_status()
         results = response.json()
-        
-        # We format the results into a clean string for the LLM to read
-        formatted_results = []
-        for res in results.get("results", []):
-            formatted_results.append(f"Source: {res['url']}\nContent: {res['content']}")
-            
+        formatted_results = [f"Source: {res['url']}\nContent: {res['content']}" for res in results.get("results", [])]
         return {"results": "\n\n".join(formatted_results)}
     except Exception as e:
         return {"error": f"Search failed: {str(e)}"}
 
-def get_unit_converter(value, from_unit, to_unit):
-    """Converts values between units"""
-    print(f"[🔧 Tool] Converting {value} {from_unit} to {to_unit}...")
-    if from_unit.lower() == "celsius" and to_unit.lower() == "fahrenheit":
-        result = (float(value) * 9/5) + 32
-        return {"result": f"{result:.1f}", "unit": to_unit}
-    return {"error": "Conversion not supported yet"}
+def save_to_file(filename, content):
+    """Saves text content to a local file."""
+    print(f"[💾 Tool] Saving content to '{filename}'...")
+    try:
+        # We ensure the filename is safe and simple
+        safe_filename = os.path.basename(filename)
+        with open(safe_filename, "w", encoding="utf-8") as f:
+            f.write(content)
+        return {"status": "success", "message": f"File '{safe_filename}' saved successfully."}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
-# Updated Dispatcher
+# Dispatcher
 available_functions = {
     "search_web": search_web,
-    "get_unit_converter": get_unit_converter
+    "save_to_file": save_to_file
 }
 
-# Updated Tool Schemas
+# Tool Schemas
 tools = [
     {
         "type": "function",
         "function": {
             "name": "search_web",
-            "description": "Search the internet for current events, news, or facts that require live data.",
+            "description": "Search the internet for current events, news, or facts.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "query": {"type": "string", "description": "The search query to look up on the internet"},
+                    "query": {"type": "string", "description": "The search query"},
                 },
                 "required": ["query"],
             },
@@ -77,23 +72,26 @@ tools = [
     {
         "type": "function",
         "function": {
-            "name": "get_unit_converter",
-            "description": "Convert values between different units",
+            "name": "save_to_file",
+            "description": "Save research results or summaries to a local text file.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "value": {"type": "number", "description": "The numerical value"},
-                    "from_unit": {"type": "string", "description": "Source unit"},
-                    "to_unit": {"type": "string", "description": "Target unit"},
+                    "filename": {"type": "string", "description": "The name of the file (e.g., report.txt)"},
+                    "content": {"type": "string", "description": "The full text content to save"},
                 },
-                "required": ["value", "from_unit", "to_unit"],
+                "required": ["filename", "content"],
             },
         },
     }
 ]
 
 def run_conversation(user_prompt):
-    messages = [{"role": "user", "content": user_prompt}]
+    messages = [
+        {"role": "system", "content": "You are a Research Assistant. Use the web to find facts and save important reports to files when requested."},
+        {"role": "user", "content": user_prompt}
+    ]
+    
     print(f"\nUser: {user_prompt}")
     
     while True:
@@ -111,7 +109,6 @@ def run_conversation(user_prompt):
             print(f"AI Response: {response_message.content}")
             break
 
-        print(f"🧠 AI: 'I need to use {len(tool_calls)} tool(s).'")
         messages.append(response_message) 
 
         for tool_call in tool_calls:
@@ -128,8 +125,8 @@ def run_conversation(user_prompt):
                     "name": function_name,
                     "content": json.dumps(function_response),
                 })
-        
+
 if __name__ == "__main__":
-    # Test with a current event
-    prompt = "Search for the temperature in Tokyo right now and convert it to Fahrenheit"
-    run_conversation(prompt)
+    # The ultimate test: Research + Synthesis + File I/O
+    project_prompt = "Research the top 3 AI news stories from this week and save a summarized report to 'ai_news_weekly.txt'."
+    run_conversation(project_prompt)
